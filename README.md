@@ -12,6 +12,8 @@ generate-gedcom.py 200 >test.ged 2>run.err
 
 ## Notes
 
+This is only for relationship testing. There are no dates or other events created.
+
 There are some random decisions:
 - how many children in a family
 - choice of given name
