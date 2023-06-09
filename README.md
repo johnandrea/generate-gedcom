@@ -18,6 +18,8 @@ There are some random decisions:
 - if a spouse will have a sibling or two
 - if a spouse will have grandparents
 
+Inital test generated one million individuals in about 32 seconds.
+
 ## Limitations
 
 - Requires Python 3.6+
