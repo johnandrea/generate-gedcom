@@ -20,7 +20,9 @@ There are some random decisions (adjustable by variables inside the program):
 - if a spouse will have a sibling or two
 - if a spouse will have grandparents
 
-Inital test generated one million individuals in about 32 seconds.
+On a modest computer:
+Generated 10 thousand individuals in about 1 second.
+Generated one million individuals in about 32 seconds.
 
 ## Limitations
 
