@@ -1,0 +1,362 @@
+''' Create a gedcom family tree to stdout
+Input parameter is the number of people, default 10, min 10
+
+This is for relationship testing only.
+There are no dates and no places.
+No birth and death events, etc.
+Though they could be added with a some more ambition.
+
+For simplicity to ensure the tree doesn't expire before creating
+the selected number of people: every child will take a spouse
+and every family will have children.
+
+This code is released under the MIT License: https://opensource.org/licenses/MIT
+Copyright (c) 2022 John A. Andrea
+v1.0
+
+No support provided.
+'''
+
+import sys
+import random
+
+
+# every family will have this many children
+MIN_CHILDREN = 2
+MAX_CHILDREN = 6
+
+# a person will take a second spouse if the probability exceeds
+#SECOND_SPOUSE_PROB = 0.92 #not yet used
+
+# more inlaws
+ADD_SPOUSE_SIBLING = 0.60
+SECOND_SPOUSE_SIBLING = 0.85
+SPOUSE_GRANDPARENTS = 0.75
+
+# some gendered names
+
+MALE_NAMES = ['Allan','Andy','Arthur','Billy','Brian','Barry','Bob','Calvin','Colin','Daryl','Drew',
+              'Edward','Ernest','Ethan','Fred','Frank','Gaston','Gus','Harry','Hank',
+              'Ivan','Igor','Jack','Joe','Justin','Kevin','Keith','Larry','Louis','Leon',
+              'Mario','Melvin','Mark','Norman','Neil','Oscar','Oliver','Paul','Perry',
+              'Quinn','Randy','Robert','Ralph','Samuel','Scott','Shawn','Tom','Trevor',
+              'Todd','Umberto','Vern','Victor','Walt','Winston','Wolfgang',
+              'Xavier','Yosif','Yuri','Zeke','Zack']
+
+FEMALE_NAMES = ['Amy','Alwyne','Amelia','Betty,','Beth','Bridget','Carol','Connie','Cathy',
+                'Daisy','Darlene','Diana','Dora','Elsie','Eliza','Emily','Fiona','Flora','Flo',
+                'Grace','Gloria','Gemma','Helen','Heidi','Hope','Irene','Ivy','Iris',
+                'Jane','Judy','Jill','Jade','Kate','Kathryn','Lauren','Louisa','Lily',
+                'Mary','Martha','Marcy','Molly','Morgan','Nina','Nora','Olive','Octavia',
+                'Patricia','Penelope','Rachel','Rose','Ruby','Ruth','Sarah','Sophia','Samantha',
+                'Tiffany','Tilly','Ursula','Violet','Veronica','Winifred','Yvette','Yolonda',
+                'Zoey','Zelda']
+
+PARTNER_TYPES = ['wife', 'husb']
+
+
+def header():
+    print( '''0 HEAD
+1 SOUR programrandomly
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 SUBM @SUB1@
+0 @SUB1@ SUBM
+1 NAME John Andrea''' )
+
+def trailer():
+    print( '0 TRLR' )
+
+
+def make_gender():
+    result = 'M'
+    if random.random() > 0.5:
+       result = 'F'
+    return result
+
+
+def gender_from_partner_type( t ):
+    result = 'M'
+    if t.lower() == 'wife':
+       result = 'F'
+    return result
+
+
+def other_gender( g ):
+    result = 'M'
+    if g == 'M':
+       result = 'F'
+    return result
+
+
+def make_surname( i ):
+    return 'Surname' + '_' + str(i)
+
+
+def random_name( names ):
+    n = len( names )
+    r = random.randint( 0, n-1 )
+    return names[r].strip()
+
+
+def pick_a_name( g ):
+    if g == 'M':
+       return random_name( MALE_NAMES )
+    return random_name( FEMALE_NAMES )
+
+
+def make_person( surname, gender, parent_fam, fam ):
+    results = dict()
+    results['givn'] = pick_a_name( gender )
+    results['surn'] = surname
+    results['gender'] = gender
+    # existance of these tags becomes a flag because they are only created as needed
+    if fam is not None:
+       results['fams'] = fam
+    if parent_fam is not None:
+       results['famc'] = parent_fam
+    return results
+
+
+def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
+   global indi_data
+   global fam_data
+
+   def add_parents_to_spouse( the_spouses, max_indi, n_indi, n_fam, n_surnames ):
+       # always occurs
+       for spouse in the_spouses:
+           # collect them by type as added
+           spouse_parents_by_type = dict()
+           for partner_type in PARTNER_TYPES:
+               n_indi += 1
+               if n_indi <= max_indi:
+                  spouse_parents_by_type[partner_type] = n_indi
+                  gender = gender_from_partner_type( partner_type )
+
+                  # husb gets surname from child
+                  surname = indi_data[spouse]['surn']
+                  if gender == 'F':
+                    # wife gets a new one
+                    n_surnames += 1
+                    surname = make_surname( n_surnames )
+                  indi_data[n_indi] = make_person( surname, gender, None, None )
+           # were any created
+           if spouse_parents_by_type:
+              n_fam += 1
+              fam_data[n_fam] = dict()
+              for spouse_parent_type in spouse_parents_by_type:
+                  parent_id = spouse_parents_by_type[spouse_parent_type]
+                  fam_data[n_fam][spouse_parent_type] = parent_id
+                  indi_data[parent_id]['fams'] = n_fam
+              # add the child to that family
+              fam_data[n_fam]['chil'] = [spouse]
+              # and vise versa
+              indi_data[spouse]['famc'] = n_fam
+       return [ n_indi, n_fam, n_surnames ]
+
+   def add_siblings_to_spouse( the_spouses, max_indi, n_indi, n_fam, n_surnames ):
+       for spouse in the_spouses:
+
+           n_more = 0
+           if random.random() >= ADD_SPOUSE_SIBLING:
+              n_more += 1
+           if random.random() >= SECOND_SPOUSE_SIBLING:
+              n_more += 1
+
+           for _ in range(n_more):
+               n_indi += 1
+               if n_indi <= max_indi:
+                  surname = indi_data[spouse]['surn']
+                  same_fam = indi_data[spouse]['famc']
+                  gender = make_gender()
+                  indi_data[n_indi] = make_person( surname, gender, None, same_fam )
+                  fam_data[same_fam]['chil'].append( n_indi )
+       return [ n_indi, n_fam, n_surnames ]
+
+   def add_grandparents_to_spouse( the_spouses, max_indi, n_indi, n_fam, n_surnames ):
+       for spouse in the_spouses:
+           # also check that parents exist, because max_indi might have been reached
+           if random.random() >= SPOUSE_GRANDPARENTS and 'famc' in indi_data[spouse]:
+              spouse_fam = indi_data[spouse]['famc']
+              # collect parents by type
+              spouse_parents = dict()
+              for partner_type in PARTNER_TYPES:
+                  if partner_type in fam_data[spouse_fam]:
+                     spouse_parents[partner_type] = fam_data[spouse_fam][partner_type]
+              # add the grandparent generaton to each parent
+              for spouse_parent in spouse_parents:
+                  # collect by type as they are added
+                  spouse_grand = dict()
+                  parent_id = spouse_parents[spouse_parent]
+                  for partner_type in PARTNER_TYPES:
+                      n_indi += 1
+                      if n_indi <= max_indi:
+                         spouse_grand[partner_type] = n_indi
+                         gender = gender_from_partner_type( partner_type )
+                         # husb gets surname from child
+                         surname = indi_data[parent_id]['surn']
+                         if gender == 'F':
+                            # wife gets a new one
+                            n_surnames += 1
+                            surname = make_surname( n_surnames )
+                         indi_data[n_indi] = make_person( surname, gender, None, None )
+                  # where any added
+                  if spouse_grand:
+                     n_fam += 1
+                     fam_data[n_fam] = dict()
+                     for grand in spouse_grand:
+                         grand_id = spouse_grand[grand]
+                         fam_data[n_fam][grand] = grand_id
+                         # they are a partner in this family
+                         indi_data[grand_id]['fams'] = n_fam
+                     # child has this family of parents
+                     indi_data[parent_id]['famc'] = n_fam
+                     # and vise versa
+                     fam_data[n_fam]['chil'] = [parent_id]
+       return [ n_indi, n_fam, n_surnames ]
+
+
+   add_children_to_families = [parent_fam]
+
+   while n_indi <= max_indi:
+       next_gen_families = []
+
+       for add_child_to_fam in add_children_to_families:
+           n_child = random.randint( MIN_CHILDREN, MAX_CHILDREN )
+
+           # surname from the father
+           father = fam_data[add_child_to_fam]['husb']
+           parent_surname = indi_data[father]['surn']
+
+           fam_data[add_child_to_fam]['chil'] = []
+
+           for _ in range(0,n_child):
+               n_indi += 1
+               if n_indi <= max_indi:
+                  gender = make_gender()
+                  indi_data[n_indi] = make_person( parent_surname, gender, add_child_to_fam, None )
+                  # add child to parents
+                  fam_data[add_child_to_fam]['chil'].append( n_indi )
+
+           spouses = []
+
+           # add a spouse to each new child
+           for child in fam_data[parent_fam]['chil']:
+               n_indi += 1
+               if n_indi <= max_indi:
+                  spouses.append( n_indi )
+                  n_fam += 1
+                  fam_data[n_fam] = dict()
+
+                  # handle this family in the next generation
+                  next_gen_families.append( n_fam )
+
+                  # add this family to the new child
+                  indi_data[child]['fams'] = n_fam
+
+                  # spouse gets a new surname
+                  n_surnames += 1
+                  surname = make_surname( n_surnames )
+
+                  spouse_gender = other_gender( indi_data[child]['gender'] )
+
+                  husb = n_indi
+                  wife = child
+                  if spouse_gender == 'F':
+                     husb = child
+                     wife = n_indi
+
+                  indi_data[n_indi] = make_person( surname, spouse_gender, None, n_fam )
+
+                  fam_data[n_fam]['husb'] = husb
+                  fam_data[n_fam]['wife'] = wife
+
+           new_counts = add_parents_to_spouse( spouses, max_indi, n_indi, n_fam, n_surnames )
+           n_indi = new_counts[0]
+           n_fam = new_counts[1]
+           n_surnames = new_counts[2]
+
+           new_counts = add_siblings_to_spouse( spouses, max_indi, n_indi, n_fam, n_surnames )
+           n_indi = new_counts[0]
+           n_fam = new_counts[1]
+           n_surnames = new_counts[2]
+
+           new_counts = add_grandparents_to_spouse( spouses, max_indi, n_indi, n_fam, n_surnames )
+           n_indi = new_counts[0]
+           n_fam = new_counts[1]
+           n_surnames = new_counts[2]
+
+       # run across the next generation, breath wise
+       add_children_to_families = []
+       for new_fam in next_gen_families:
+           add_children_to_families.append( new_fam )
+
+
+def make_xref( s, i ):
+    return '@' + s.upper() + str(i) + '@'
+
+
+def print_indi( d ):
+    print( '1 NAME', d['givn'], '/' + d['surn'] + '/' )
+    print( '2 GIVN', d['givn'] )
+    print( '2 SURN', d['surn'] )
+    print( '1 SEX', d['gender'] )
+    for fam_item in ['fams','famc']:
+        if fam_item in d:
+           print( '1',fam_item.upper(), make_xref( 'f', d[fam_item] ) )
+
+
+def print_fam( d ):
+    for partner_type in PARTNER_TYPES:
+        if partner_type in d:
+           print( '1', partner_type.upper(), make_xref( 'i', d[partner_type] ) )
+    if 'chil' in d:
+       for child in d['chil']:
+           print( '1 CHIL', make_xref( 'i', child ) )
+
+
+n = 10
+if len( sys.argv ) > 1:
+   if int(sys.argv[1]) > n:
+      n = int(sys.argv[1])
+
+# build a generic data structure
+indi_data = dict()
+fam_data = dict()
+
+# the top of the tree
+# indi_xref will be the total person counter
+
+indi_xref = 1
+fam_xref = 1
+surname_count = 1
+
+surname = make_surname( surname_count)
+indi_data[indi_xref] = make_person( surname, 'M', None, fam_xref )
+parent1 = indi_xref
+
+indi_xref += 1
+surname_count += 1
+surname = make_surname( surname_count )
+indi_data[indi_xref] = make_person( surname, 'F', None, fam_xref )
+
+fam_data[fam_xref] = dict()
+fam_data[fam_xref]['husb'] = parent1
+fam_data[fam_xref]['wife'] = indi_xref
+
+add_children( n, indi_xref, fam_xref, surname_count, fam_xref )
+
+# all done
+header()
+
+for indi in indi_data:
+    print( '0', make_xref( 'i', indi ), 'INDI' )
+    print_indi( indi_data[indi] )
+
+for fam in fam_data:
+    print( '0', make_xref( 'f', fam ), 'FAM' )
+    print_fam( fam_data[fam] )
+
+trailer()
