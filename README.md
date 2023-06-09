@@ -12,7 +12,7 @@ generate-gedcom.py 200 >test.ged 2>run.err
 
 ## Notes
 
-This is only for relationship testing. There are no dates or other events created.
+This is only for biological relationship testing. There are no dates or other events created.
 
 There are some random decisions (adjustable by variables inside the program):
 - how many children in a family
