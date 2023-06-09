@@ -1,10 +1,9 @@
 ''' Create a gedcom family tree to stdout
 Input parameter is the number of people, default 10, min 10
 
-This is for relationship testing only.
-There are no dates and no places.
-No birth and death events, etc.
-Though they could be added with a some more ambition.
+This is for biological relationship testing only.
+There are no places.
+There are no events or facts except some birth, death and marriage dates.
 
 For simplicity to ensure the tree doesn't expire before creating
 the selected number of people: every child will take a spouse
@@ -12,7 +11,7 @@ and every family will have children.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2022 John A. Andrea
-v1.0
+v1.1
 
 No support provided.
 '''
@@ -33,20 +32,36 @@ ADD_SPOUSE_SIBLING = 0.60
 SECOND_SPOUSE_SIBLING = 0.85
 SPOUSE_GRANDPARENTS = 0.75
 
-# some gendered names
+# all the date controls
+INCLUDE_DATES = True
+ADD_DEATH_PROB = 0.8
+ADD_MARRIAGE_DATE_PROB = 0.5
+START_YEAR = 1800
+ADD_DIFFER_FROM_SPOUSE = 4 # +/-
+YEARS_MARRIED_BEFORE_CHILD = 3  # zero minimum
+MIN_AGE_FIRST_CHILDBIRTH = 18 # for the mother
+MAX_AGE_FIRST_CHILDBIRTH = 29
+MIN_YEARS_BETWEEN_SIBLINGS = 1
+MAX_YEARS_BETWEEN_SIBLINGS = 4
+MIN_YEARS_ALIVE_AFTER_CHILDREN = 5
+MAX_YEARS_ALIVE_AFTER_CHILDREN = 35
 
-MALE_NAMES = ['Allan','Andy','Arthur','Billy','Brian','Barry','Bob','Calvin','Colin','Daryl','Drew',
-              'Edward','Ernest','Ethan','Fred','Frank','Gaston','Gus','Harry','Hank',
-              'Ivan','Igor','Jack','Joe','Justin','Kevin','Keith','Larry','Louis','Leon',
-              'Mario','Melvin','Mark','Norman','Neil','Oscar','Oliver','Paul','Perry',
-              'Quinn','Randy','Robert','Ralph','Samuel','Scott','Shawn','Tom','Trevor',
-              'Todd','Umberto','Vern','Victor','Walt','Winston','Wolfgang',
-              'Xavier','Yosif','Yuri','Zeke','Zack']
+# some gender names to be picked out randomly
 
-FEMALE_NAMES = ['Amy','Alwyne','Amelia','Betty,','Beth','Bridget','Carol','Connie','Cathy',
-                'Daisy','Darlene','Diana','Dora','Elsie','Eliza','Emily','Fiona','Flora','Flo',
-                'Grace','Gloria','Gemma','Helen','Heidi','Hope','Irene','Ivy','Iris',
-                'Jane','Judy','Jill','Jade','Kate','Kathryn','Lauren','Louisa','Lily',
+MALE_NAMES = ['Adam','Allan','Andy','Arthur','Billy','Brian','Barry','Bob','Bruce',
+              'Calvin','Colin','Daryl','Drew','Edward','Ernest','Ethan','Fred','Frank',
+              'Gaston','Gus','Harry','Hank','Ivan','Igor','Jack','Joe','Justin',
+              'Kevin','Keith','Larry','Lionel','Louis','Leon','Mario','Melvin','Mark',
+              'Norman','Neil','Oscar','Oliver','Paul','Perry','Quinn',
+              'Randy','Robert','Ralph','Raju','Samuel','Scott','Shawn','Tom','Trevor','Todd',
+              'Umberto','Vern','Victor','Walt','Winston','Wolfgang','Xavier','Yosif','Yuri',
+              'Zeke','Zack']
+
+FEMALE_NAMES = ['Alice','Alwyne','Amelia','Amy','Betty,','Beth','Bridget',
+                'Carol','Connie','Cathy','Daisy','Darlene','Diana','Dora',
+                'Elsie','Eliza','Emily','Eve','Fiona','Flora','Flo','Grace','Gloria','Gemma',
+                'Helen','Heidi','Hope','Irene','Ivy','Iris','Jane','Judy','Jill','Jade','Joi',
+                'Kate','Kathryn','Krista','Lauren','Louisa','Lily','Lucy','Lucia',
                 'Mary','Martha','Marcy','Molly','Morgan','Nina','Nora','Olive','Octavia',
                 'Patricia','Penelope','Rachel','Rose','Ruby','Ruth','Sarah','Sophia','Samantha',
                 'Tiffany','Tilly','Ursula','Violet','Veronica','Winifred','Yvette','Yolonda',
@@ -98,7 +113,11 @@ def make_surname( i ):
 def random_name( names ):
     n = len( names )
     r = random.randint( 0, n-1 )
-    return names[r].strip()
+    n = names[r].strip()
+    # protect against a name mistake in the constants
+    if n:
+      return n
+    return 'Name'
 
 
 def pick_a_name( g ):
@@ -176,6 +195,7 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
        return [ n_indi, n_fam, n_surnames ]
 
    def add_grandparents_to_spouse( the_spouses, max_indi, n_indi, n_fam, n_surnames ):
+       # there is some code duplication here vs the spouse parent addition
        for spouse in the_spouses:
            # also check that parents exist, because max_indi might have been reached
            if random.random() >= SPOUSE_GRANDPARENTS and 'famc' in indi_data[spouse]:
@@ -224,7 +244,8 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
        next_gen_families = []
 
        for add_child_to_fam in add_children_to_families:
-           n_child = random.randint( MIN_CHILDREN, MAX_CHILDREN )
+           # add some absolute limits on the number of children
+           n_child = random.randint( max(1,MIN_CHILDREN), min(16,MAX_CHILDREN) )
 
            # surname from the father
            father = fam_data[add_child_to_fam]['husb']
@@ -303,10 +324,13 @@ def print_indi( d ):
     print( '2 GIVN', d['givn'] )
     print( '2 SURN', d['surn'] )
     print( '1 SEX', d['gender'] )
-    for fam_item in ['fams','famc']:
-        if fam_item in d:
-           print( '1',fam_item.upper(), make_xref( 'f', d[fam_item] ) )
-
+    for item in ['fams','famc']:
+        if item in d:
+           print( '1', item.upper(), make_xref( 'f', d[item] ) )
+    for item in ['birt','deat']:
+        if item in d:
+           print( '1', item.upper() )
+           print( '2 DATE', d[item] )
 
 def print_fam( d ):
     for partner_type in PARTNER_TYPES:
@@ -315,12 +339,23 @@ def print_fam( d ):
     if 'chil' in d:
        for child in d['chil']:
            print( '1 CHIL', make_xref( 'i', child ) )
+    for item in ['marr']:
+        if item in d:
+           print( '1', item.upper() )
+           print( '2 DATE,', d[item] )
 
 
 n = 10
 if len( sys.argv ) > 1:
    if int(sys.argv[1]) > n:
       n = int(sys.argv[1])
+if len( sys.argv ) > 2:
+   option = sys.argv[2].lower()
+   if option == 'nodates':
+      INCLUDE_DATES = False
+   if option == 'yesdates':
+      INCLUDE_DATES = True
+
 
 # build a generic data structure
 indi_data = dict()
