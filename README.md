@@ -10,7 +10,7 @@ One input parameter: the number of people to generate. Output file is sent to st
 generate-gedcom.py 200 >test.ged 2>run.err
 ```
 
-There is an optional second parameter which can override the include-dates setting within the program code. It can be "nodates" or "yesdates".
+There is an optional second parameter which can override the include-dates setting within the program code. It can be "nodates" or "yesdates". Date creating is enabled by default because it helps with identifying individuals.
 
 ```
 generate-gedcom.py 400 nodates >tet.ged 2>run.err
