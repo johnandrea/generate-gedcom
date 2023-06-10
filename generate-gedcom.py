@@ -11,7 +11,7 @@ and every family will have children.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2022 John A. Andrea
-v1.1
+v1.2
 
 No support provided.
 '''
@@ -35,7 +35,7 @@ SPOUSE_GRANDPARENTS = 0.75
 # all the date controls
 INCLUDE_DATES = True
 ADD_DEATH_PROB = 0.8
-ADD_MARRIAGE_DATE_PROB = 0.5
+ADD_MARRIAGE_DATE_PROB = 0.4
 START_YEAR = 1800
 AGE_DIFFER_FROM_SPOUSE = 4 # +/-
 YEARS_MARRIED_BEFORE_CHILD = 3  # zero minimum
@@ -126,16 +126,19 @@ def pick_a_name( g ):
     return random_name( FEMALE_NAMES )
 
 
-def make_person( surname, gender, parent_fam, fam ):
+def make_person( surname, gender, birth, parent_fam, fam ):
     results = dict()
     results['givn'] = pick_a_name( gender )
     results['surn'] = surname
     results['gender'] = gender
     # existance of these tags becomes a flag because they are only created as needed
-    if fam is not None:
+    if fam:
        results['fams'] = fam
-    if parent_fam is not None:
+    if parent_fam:
        results['famc'] = parent_fam
+    if birth:
+       results['birt'] = birth
+
     return results
 
 
@@ -145,6 +148,9 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
 
    def add_parents_to_spouse( the_spouses, max_indi, n_indi, n_fam, n_surnames ):
        # always occurs
+
+       birth_year = None
+
        for spouse in the_spouses:
            # collect them by type as added
            spouse_parents_by_type = dict()
@@ -160,7 +166,7 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
                     # wife gets a new one
                     n_surnames += 1
                     surname = make_surname( n_surnames )
-                  indi_data[n_indi] = make_person( surname, gender, None, None )
+                  indi_data[n_indi] = make_person( surname, gender, birth_year, None, None )
            # were any created
            if spouse_parents_by_type:
               n_fam += 1
@@ -176,6 +182,8 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
        return [ n_indi, n_fam, n_surnames ]
 
    def add_siblings_to_spouse( the_spouses, max_indi, n_indi, n_fam, n_surnames ):
+       birth_year = None
+
        for spouse in the_spouses:
 
            n_more = 0
@@ -190,11 +198,14 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
                   surname = indi_data[spouse]['surn']
                   same_fam = indi_data[spouse]['famc']
                   gender = make_gender()
-                  indi_data[n_indi] = make_person( surname, gender, None, same_fam )
+                  indi_data[n_indi] = make_person( surname, gender, birth_year, None, same_fam )
                   fam_data[same_fam]['chil'].append( n_indi )
        return [ n_indi, n_fam, n_surnames ]
 
    def add_grandparents_to_spouse( the_spouses, max_indi, n_indi, n_fam, n_surnames ):
+       # don't bother adding dates for these grandparents
+       birth_year = None
+
        # there is some code duplication here vs the spouse parent addition
        for spouse in the_spouses:
            # also check that parents exist, because max_indi might have been reached
@@ -221,7 +232,7 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
                             # wife gets a new one
                             n_surnames += 1
                             surname = make_surname( n_surnames )
-                         indi_data[n_indi] = make_person( surname, gender, None, None )
+                         indi_data[n_indi] = make_person( surname, gender, birth_year, None, None )
                   # where any added
                   if spouse_grand:
                      n_fam += 1
@@ -237,6 +248,24 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
                      fam_data[n_fam]['chil'] = [parent_id]
        return [ n_indi, n_fam, n_surnames ]
 
+   def add_parent_dates( fam, date_child_1, date_child_n ):
+       # to be called within an include-dates test
+       # marriage and deaths depends on child births
+       if random.random() >= ADD_MARRIAGE_DATE_PROB:
+          marr_date = date_child_1 - random.randint( 0, YEARS_MARRIED_BEFORE_CHILD )
+          fam_data[fam]['marr'] = marr_date
+          for partner_type in PARTNER_TYPES:
+              if partner_type in fam_data[fam]:
+                 if random.random() >= ADD_DEATH_PROB:
+                    partner = fam_data[fam][partner_type]
+                    death = date_child_n + random.randint( MIN_YEARS_ALIVE_AFTER_CHILDREN, MAX_YEARS_ALIVE_AFTER_CHILDREN )
+                    indi_data[partner]['deat'] = death
+
+   # set to nothing in case never used
+   child_birth = None
+   spouse_birth = None
+   first_child_birth = None
+   last_child_birth = None
 
    add_children_to_families = [parent_fam]
 
@@ -251,15 +280,28 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
            father = fam_data[add_child_to_fam]['husb']
            parent_surname = indi_data[father]['surn']
 
+           if INCLUDE_DATES:
+              # birth from mother, which might be None
+              mother = fam_data[add_child_to_fam]['wife']
+              mother_birth = indi_data[mother]['birt']
+              # set the first child
+              child_birth = mother_birth + random.randint( MIN_AGE_FIRST_CHILDBIRTH, MAX_AGE_FIRST_CHILDBIRTH )
+              first_child_birth = child_birth
+
            fam_data[add_child_to_fam]['chil'] = []
 
            for _ in range(n_child):
                n_indi += 1
                if n_indi <= max_indi:
                   gender = make_gender()
-                  indi_data[n_indi] = make_person( parent_surname, gender, add_child_to_fam, None )
+                  indi_data[n_indi] = make_person( parent_surname, gender, child_birth, add_child_to_fam, None )
                   # add child to parents
                   fam_data[add_child_to_fam]['chil'].append( n_indi )
+
+               # next child
+               if INCLUDE_DATES:
+                  last_child_birth = child_birth
+                  child_birth += random.randint( MIN_YEARS_BETWEEN_SIBLINGS, MAX_YEARS_BETWEEN_SIBLINGS )
 
            spouses = []
 
@@ -283,13 +325,17 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
 
                   spouse_gender = other_gender( indi_data[child]['gender'] )
 
+                  if INCLUDE_DATES:
+                     child_birth = indi_data[child]['birt']
+                     spouse_birth = child_birth + random.randint( -AGE_DIFFER_FROM_SPOUSE, +AGE_DIFFER_FROM_SPOUSE )
+
                   husb = n_indi
                   wife = child
                   if spouse_gender == 'F':
                      husb = child
                      wife = n_indi
 
-                  indi_data[n_indi] = make_person( surname, spouse_gender, None, n_fam )
+                  indi_data[n_indi] = make_person( surname, spouse_gender, spouse_birth, None, n_fam )
 
                   fam_data[n_fam]['husb'] = husb
                   fam_data[n_fam]['wife'] = wife
@@ -308,6 +354,9 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
            n_indi = new_counts[0]
            n_fam = new_counts[1]
            n_surnames = new_counts[2]
+
+           if INCLUDE_DATES:
+              add_parent_dates( add_child_to_fam, first_child_birth, last_child_birth )
 
        # run across the next generation, breath wise
        # deep copy (not pythonic)
@@ -343,7 +392,7 @@ def print_fam( d ):
     for item in ['marr']:
         if item in d:
            print( '1', item.upper() )
-           print( '2 DATE,', d[item] )
+           print( '2 DATE', d[item] )
 
 
 n = 10 #default minimum number of individuals
@@ -373,20 +422,20 @@ indi_xref = 1
 fam_xref = 1
 surname_count = 1
 
-surname = make_surname( surname_count)
-indi_data[indi_xref] = make_person( surname, 'M', None, fam_xref )
+birth = None
+spouse_birth = None
 if INCLUDE_DATES:
-   indi_data[indi_xref]['birt'] = START_YEAR
+   birth = START_YEAR
+   spouse_birth = birth + random.randint( -AGE_DIFFER_FROM_SPOUSE, +AGE_DIFFER_FROM_SPOUSE )
+
+surname = make_surname( surname_count)
+indi_data[indi_xref] = make_person( surname, 'M', birth, None, fam_xref )
 parent1 = indi_xref
 
 indi_xref += 1
 surname_count += 1
 surname = make_surname( surname_count )
-indi_data[indi_xref] = make_person( surname, 'F', None, fam_xref )
-if INCLUDE_DATES:
-   spouse_birth = START_YEAR + random.randint( -AGE_DIFFER_FROM_SPOUSE, AGE_DIFFER_FROM_SPOUSE )
-   indi_data[indi_xref]['birt'] = spouse_birt
-
+indi_data[indi_xref] = make_person( surname, 'F', spouse_birth, None, fam_xref )
 
 fam_data[fam_xref] = dict()
 fam_data[fam_xref]['husb'] = parent1
