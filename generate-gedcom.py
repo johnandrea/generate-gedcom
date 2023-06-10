@@ -37,7 +37,7 @@ INCLUDE_DATES = True
 ADD_DEATH_PROB = 0.8
 ADD_MARRIAGE_DATE_PROB = 0.5
 START_YEAR = 1800
-ADD_DIFFER_FROM_SPOUSE = 4 # +/-
+AGE_DIFFER_FROM_SPOUSE = 4 # +/-
 YEARS_MARRIED_BEFORE_CHILD = 3  # zero minimum
 MIN_AGE_FIRST_CHILDBIRTH = 18 # for the mother
 MAX_AGE_FIRST_CHILDBIRTH = 29
@@ -253,7 +253,7 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
 
            fam_data[add_child_to_fam]['chil'] = []
 
-           for _ in range(0,n_child):
+           for _ in range(n_child):
                n_indi += 1
                if n_indi <= max_indi:
                   gender = make_gender()
@@ -310,6 +310,7 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
            n_surnames = new_counts[2]
 
        # run across the next generation, breath wise
+       # deep copy (not pythonic)
        add_children_to_families = []
        for new_fam in next_gen_families:
            add_children_to_families.append( new_fam )
@@ -345,13 +346,17 @@ def print_fam( d ):
            print( '2 DATE,', d[item] )
 
 
-n = 10
+n = 10 #default minimum number of individuals
+
 if len( sys.argv ) > 1:
-   if int(sys.argv[1]) > n:
-      n = int(sys.argv[1])
+   x = int(sys.argv[1])
+   if x > n:
+      n = x
+
+# second option overrides date setting
 if len( sys.argv ) > 2:
-   option = sys.argv[2].lower()
-   if option == 'nodates':
+   option = sys.argv[2].lower().replace('-','').replace('_','').replace(' ','')
+   if option in ['nodates','notdates']:
       INCLUDE_DATES = False
    if option == 'yesdates':
       INCLUDE_DATES = True
@@ -370,16 +375,23 @@ surname_count = 1
 
 surname = make_surname( surname_count)
 indi_data[indi_xref] = make_person( surname, 'M', None, fam_xref )
+if INCLUDE_DATES:
+   indi_data[indi_xref]['birt'] = START_YEAR
 parent1 = indi_xref
 
 indi_xref += 1
 surname_count += 1
 surname = make_surname( surname_count )
 indi_data[indi_xref] = make_person( surname, 'F', None, fam_xref )
+if INCLUDE_DATES:
+   spouse_birth = START_YEAR + random.randint( -AGE_DIFFER_FROM_SPOUSE, AGE_DIFFER_FROM_SPOUSE )
+   indi_data[indi_xref]['birt'] = spouse_birt
+
 
 fam_data[fam_xref] = dict()
 fam_data[fam_xref]['husb'] = parent1
 fam_data[fam_xref]['wife'] = indi_xref
+# marriage date added after children added
 
 add_children( n, indi_xref, fam_xref, surname_count, fam_xref )
 
