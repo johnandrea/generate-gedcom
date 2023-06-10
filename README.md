@@ -20,9 +20,11 @@ There are some random decisions (adjustable by variables inside the program):
 - if a spouse will have a sibling or two
 - if a spouse will have grandparents
 
-On a modest computer:
-Generated 10 thousand individuals in about 1 second.
-Generated one million individuals in about 32 seconds.
+## Timing on a modest pc
+
+Without dates:
+- 10 thousand individuals in about 1 second.
+- one million individuals in about 32 seconds.
 
 ## Limitations
 
