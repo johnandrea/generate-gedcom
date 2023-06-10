@@ -12,7 +12,7 @@ and every family will have children.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2023 John A. Andrea
-v2.1
+v2.2
 
 No support provided.
 '''
@@ -34,6 +34,7 @@ SECOND_SPOUSE_SIBLING = 0.85
 SPOUSE_GRANDPARENTS = 0.75
 
 # all the date controls
+# enabled by default because it helps with identifing individuals. Everyone gets a birth date.
 INCLUDE_DATES = True
 ADD_DEATH_PROB = 0.8
 ADD_MARRIAGE_DATE_PROB = 0.4
