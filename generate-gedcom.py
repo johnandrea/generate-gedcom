@@ -12,7 +12,7 @@ and every family will have children.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2023 John A. Andrea
-v2.0
+v2.1
 
 No support provided.
 '''
@@ -300,6 +300,8 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
                  # then marriage, etc.
                  add_parent_dates( fam, first_sib_birth, last_sib_birth )
 
+   # stats
+   gen_counts = [0]
 
    # set to nothing in case never used
    child_birth = None
@@ -311,6 +313,9 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
 
    while n_indi <= max_indi:
        next_gen_families = []
+
+       # count created children
+       n_created = 0
 
        for add_child_to_fam in add_children_to_families:
            # add some absolute limits on the number of children
@@ -333,6 +338,7 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
            for _ in range(n_child):
                n_indi += 1
                if n_indi <= max_indi:
+                  n_created += 1
                   gender = make_gender()
                   indi_data[n_indi] = make_person( parent_surname, gender, child_birth, add_child_to_fam, None )
                   # add child to parents
@@ -346,7 +352,7 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
            spouses = []
 
            # add a spouse to each new child
-           for child in fam_data[parent_fam]['chil']:
+           for child in fam_data[add_child_to_fam]['chil']:
                n_indi += 1
                if n_indi <= max_indi:
                   spouses.append( n_indi )
@@ -399,29 +405,37 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
               add_parent_dates( add_child_to_fam, first_child_birth, last_child_birth )
               add_spouse_parent_dates( spouses )
 
+       gen_counts.append( n_created )
+
        # run across the next generation, breath wise
        # deep copy (not pythonic)
        add_children_to_families = []
        for new_fam in next_gen_families:
            add_children_to_families.append( new_fam )
 
+   return gen_counts
+
 
 def make_xref( s, i ):
     return '@' + s.upper() + str(i) + '@'
 
 
-def print_indi( d ):
+def print_indi( d, stats ):
     print( '1 NAME', d['givn'], '/' + d['surn'] + '/' )
     print( '2 GIVN', d['givn'] )
     print( '2 SURN', d['surn'] )
     print( '1 SEX', d['gender'] )
+    stats[d['gender']] += 1
     for item in ['fams','famc']:
         if item in d:
            print( '1', item.upper(), make_xref( 'f', d[item] ) )
     for item in ['birt','deat']:
         if item in d:
+           value = d[item]
+           stats['oldest'] = min( stats['oldest'], value )
+           stats['newest'] = max( stats['newest'], value )
            print( '1', item.upper() )
-           print( '2 DATE', d[item] )
+           print( '2 DATE', value )
 
 def print_fam( d ):
     for partner_type in PARTNER_TYPES:
@@ -483,17 +497,31 @@ fam_data[fam_xref]['husb'] = parent1
 fam_data[fam_xref]['wife'] = indi_xref
 # marriage date added after children added
 
-add_children( n, indi_xref, fam_xref, surname_count, fam_xref )
+generation_stats = add_children( n, indi_xref, fam_xref, surname_count, fam_xref )
 
-# all done
+# all done with the ceation, output to gedcom format
 header()
+
+more_stats = dict()
+more_stats['oldest'] = START_YEAR
+more_stats['newest'] = START_YEAR
+more_stats['F'] = 0
+more_stats['M'] = 0
 
 for indi in indi_data:
     print( '0', make_xref( 'i', indi ), 'INDI' )
-    print_indi( indi_data[indi] )
+    print_indi( indi_data[indi], more_stats )
 
 for fam in fam_data:
     print( '0', make_xref( 'f', fam ), 'FAM' )
     print_fam( fam_data[fam] )
+
+# stats to stderr
+if INCLUDE_DATES:
+   print( 'Date range:', more_stats['oldest'], more_stats['newest'], file=sys.stderr )
+print( 'Genders:', 'F', more_stats['F'], 'M', more_stats['M'], file=sys.stderr )
+print( 'Generation: Children; excluding spouses and spouse birth families.', file=sys.stderr )
+for i,count in enumerate( generation_stats ):
+    print( i, count, file=sys.stderr )
 
 trailer()
