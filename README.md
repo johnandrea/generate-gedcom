@@ -10,9 +10,16 @@ One input parameter: the number of people to generate. Output file is sent to st
 generate-gedcom.py 200 >test.ged 2>run.err
 ```
 
+There is an optional second parameter which can override the include-dates setting within the program code. It can be "nodates" or "yesdates".
+
+```
+generate-gedcom.py 400 nodates >tet.ged 2>run.err
+```
+
+
 ## Notes
 
-This is only for biological relationship testing. There are no dates or other events created.
+This is only for biological relationship testing. There dates (if enabled) for birth, death and marriate but no other events created.
 
 There are some random decisions (adjustable by variables inside the program):
 - how many children in a family
