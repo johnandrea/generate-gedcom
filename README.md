@@ -4,7 +4,7 @@ Python program to create a genealogical GEDCOM for testing other tools.
 
 ## Usage
 
-One input parameter: the number of people to generate. Output file is sent to standard out.
+One input parameter: the number of people to generate. Output file is sent to standard out. Some stats are printed to stderr.
 
 ```
 generate-gedcom.py 200 >test.ged 2>run.err
