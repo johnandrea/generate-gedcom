@@ -1,5 +1,6 @@
 ''' Create a gedcom family tree to stdout
 Input parameter is the number of people, default 10, min 10
+Second optional parameter of "nodates" or "yesdates" overrides the setting inside the program.
 
 This is for biological relationship testing only.
 There are no places.
@@ -10,8 +11,8 @@ the selected number of people: every child will take a spouse
 and every family will have children.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
-Copyright (c) 2022 John A. Andrea
-v1.2
+Copyright (c) 2023 John A. Andrea
+v2.0
 
 No support provided.
 '''
@@ -186,6 +187,9 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
 
        for spouse in the_spouses:
 
+           if INCLUDE_DATES:
+              birth_year = indi_data[spouse]['birt']
+
            n_more = 0
            if random.random() >= ADD_SPOUSE_SIBLING:
               n_more += 1
@@ -198,6 +202,10 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
                   surname = indi_data[spouse]['surn']
                   same_fam = indi_data[spouse]['famc']
                   gender = make_gender()
+
+                  if INCLUDE_DATES:
+                     birth_year += random.randint( MIN_YEARS_BETWEEN_SIBLINGS, MAX_YEARS_BETWEEN_SIBLINGS )
+
                   indi_data[n_indi] = make_person( surname, gender, birth_year, None, same_fam )
                   fam_data[same_fam]['chil'].append( n_indi )
        return [ n_indi, n_fam, n_surnames ]
@@ -252,6 +260,7 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
        # to be called within an include-dates test
        # marriage and deaths depends on child births
        if random.random() >= ADD_MARRIAGE_DATE_PROB:
+          # count backwards
           marr_date = date_child_1 - random.randint( 0, YEARS_MARRIED_BEFORE_CHILD )
           fam_data[fam]['marr'] = marr_date
           for partner_type in PARTNER_TYPES:
@@ -260,6 +269,37 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
                     partner = fam_data[fam][partner_type]
                     death = date_child_n + random.randint( MIN_YEARS_ALIVE_AFTER_CHILDREN, MAX_YEARS_ALIVE_AFTER_CHILDREN )
                     indi_data[partner]['deat'] = death
+
+   def add_spouse_parent_dates( the_spouses ):
+       # to be called within an include-dates test
+       for spouse in the_spouses:
+           if 'famc' in indi_data[spouse]:
+              fam = indi_data[spouse]['famc']
+              first_sib_birth = None
+              last_sib_birth = None
+              if 'chil' in fam_data[fam]:
+                 for child in fam_data[fam]['chil']:
+                     birth = indi_data[child]['birt']
+                     if first_sib_birth:
+                        first_sib_birth = min( first_sib_birth, birth )
+                        last_sib_birth = max( last_sib_birth, birth )
+                     else:
+                        first_sib_birth = birth
+                        last_sib_birth = birth
+                 # birth of mother first
+                 partner_birth = None
+                 if 'wife' in fam_data[fam]:
+                    partner = fam_data[fam]['wife']
+                    # count backwards
+                    partner_birth = first_sib_birth - random.randint( MIN_AGE_FIRST_CHILDBIRTH, MAX_AGE_FIRST_CHILDBIRTH )
+                    indi_data[partner]['birt'] = partner_birth
+                 if 'husb' in fam_data[fam]:
+                    partner = fam_data[fam]['husb']
+                    indi_data[partner]['birt'] = partner_birth + random.randint( -AGE_DIFFER_FROM_SPOUSE, +AGE_DIFFER_FROM_SPOUSE )
+
+                 # then marriage, etc.
+                 add_parent_dates( fam, first_sib_birth, last_sib_birth )
+
 
    # set to nothing in case never used
    child_birth = None
@@ -357,6 +397,7 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
 
            if INCLUDE_DATES:
               add_parent_dates( add_child_to_fam, first_child_birth, last_child_birth )
+              add_spouse_parent_dates( spouses )
 
        # run across the next generation, breath wise
        # deep copy (not pythonic)
