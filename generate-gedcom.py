@@ -3,8 +3,7 @@ Input parameter is the number of people, default 10, min 10
 Second optional parameter of "nodates" or "yesdates" overrides the setting inside the program.
 
 This is for biological relationship testing only.
-There are no places.
-There are no events or facts except some birth, death and marriage dates.
+Places and notes can bee added, but this is undocumented.
 
 For simplicity to ensure the tree doesn't expire before creating
 the selected number of people: every child will take a spouse
@@ -12,7 +11,7 @@ and every family will have children.
 
 This code is released under the MIT License: https://opensource.org/licenses/MIT
 Copyright (c) 2023 John A. Andrea
-v2.2
+v3.0
 
 No support provided.
 '''
@@ -69,6 +68,21 @@ FEMALE_NAMES = ['Alice','Alwyne','Amelia','Amy','Betty,','Beth','Bridget',
                 'Tiffany','Tilly','Ursula','Violet','Veronica','Winifred','Yvette','Yolonda',
                 'Zoey','Zelda']
 
+# advanced additions: event notes, date places - undocumented, off by default
+# depends on include-dates
+ADVANCED_TAGS = False
+MIN_NOTE_SIZE = 10 # characters
+MAX_NOTE_SIZE = 60 # gedcom puts a line length limit on notes
+PLACES = ['Halifax','Montreal','Ottawa','Toronto','Calgary','Vancouver',
+          'Boston','Seatle','New York','Detroit','Austin','New Orleans','Palo Alto',
+          'London','Manchester','Oxford','Cambridge','Liverpool','Reading',
+          'Paris','Rotterdam','Berlin','Brussles','Geneva','Madrid','Cairo','Rome',
+          'Brazilia','La Paz','Lima','Tropoli','Cape Town']
+
+FAKE_TEXT = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit '
+FAKE_TEXT_LEN = len( FAKE_TEXT )
+
+# mother first when adding parents
 PARTNER_TYPES = ['wife', 'husb']
 
 
@@ -86,6 +100,14 @@ def header():
 def trailer():
     print( '0 TRLR' )
 
+def make_text( n ):
+    result = FAKE_TEXT * (1 + n // FAKE_TEXT_LEN)
+    return result[:n-1].strip()
+
+def make_note():
+    # place absolute limits on size
+    n = random.randint( max(2,MIN_NOTE_SIZE), min(72,MAX_NOTE_SIZE) )
+    return make_text( n )
 
 def make_gender():
     result = 'M'
@@ -120,6 +142,10 @@ def random_name( names ):
     if n:
       return n
     return 'Name'
+
+
+def pick_a_place():
+    return random_name( PLACES )
 
 
 def pick_a_name( g ):
@@ -319,6 +345,9 @@ def add_children( max_indi, n_indi, n_fam, n_surnames, parent_fam ):
        n_created = 0
 
        for add_child_to_fam in add_children_to_families:
+           if n_indi > max_indi:
+              break
+
            # add some absolute limits on the number of children
            n_child = random.randint( max(1,MIN_CHILDREN), min(16,MAX_CHILDREN) )
 
@@ -421,6 +450,14 @@ def make_xref( s, i ):
     return '@' + s.upper() + str(i) + '@'
 
 
+def print_date( tag, value ):
+    print( '1', tag.upper() )
+    print( '2 DATE', value )
+    if ADVANCED_TAGS:
+       print( '2 PLAC', pick_a_place() )
+       print( '2 NOTE', make_note() )
+
+
 def print_indi( d, stats ):
     print( '1 NAME', d['givn'], '/' + d['surn'] + '/' )
     print( '2 GIVN', d['givn'] )
@@ -435,8 +472,8 @@ def print_indi( d, stats ):
            value = d[item]
            stats['oldest'] = min( stats['oldest'], value )
            stats['newest'] = max( stats['newest'], value )
-           print( '1', item.upper() )
-           print( '2 DATE', value )
+           print_date( item, value )
+
 
 def print_fam( d ):
     for partner_type in PARTNER_TYPES:
@@ -447,8 +484,8 @@ def print_fam( d ):
            print( '1 CHIL', make_xref( 'i', child ) )
     for item in ['marr']:
         if item in d:
-           print( '1', item.upper() )
-           print( '2 DATE', d[item] )
+           print_date( item, d[item] )
+
 
 
 n = 10 #default minimum number of individuals
