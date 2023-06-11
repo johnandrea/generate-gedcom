@@ -30,8 +30,12 @@ There are some random decisions (adjustable by variables inside the program):
 ## Timing on a modest pc
 
 Without dates:
-- 10 thousand individuals in about 1 second.
+- 10 thousand individuals in less than 1 second.
 - one million individuals in about 32 seconds.
+
+With dates (and more):
+- 10 thousand individuals in less than 1 second.
+- one million individuals in about 50 seconds.
 
 ## Limitations
 
