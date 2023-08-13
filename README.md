@@ -19,7 +19,7 @@ generate-gedcom.py 400 nodates >tet.ged 2>run.err
 
 ## Notes
 
-This is only for biological relationship testing. There dates (if enabled) for birth, death and marriate but no other events created.
+This is only for biological relationship testing. Dates (if enabled) for birth, death and marriate but no other events created.
 
 There are some random decisions (adjustable by variables inside the program):
 - how many children in a family
